@@ -1,10 +1,12 @@
-# [Project name]
+# ISKCON Pandharpur Book Management
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A responsive browser-based dashboard for ISKCON Pandharpur's book center, with sales, receipts, stock, reports, and book inventory modules.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/iskcon-books run dev` — run the dashboard website
+- `pnpm --filter @workspace/iskcon-books run typecheck` — typecheck the website
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -22,23 +24,27 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/iskcon-books/src/App.tsx` — dashboard modules and in-memory demo data
+- `artifacts/iskcon-books/src/app.css` — website layout, responsive styling, and animations
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- This is a responsive website, not a native Android application.
+- The supplied dashboard's sample data and workflows are frontend-only and remain in memory.
+- Respect reduced-motion preferences for UI animations.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+The dashboard manages book inventory, sales, receipts, stock alerts, and sales reports for the ISKCON Pandharpur book center.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Preserve existing modules, copy, sample content, and behaviors; limit future changes to presentation and animation unless the user explicitly asks otherwise.
+- Keep the experience as a full-screen responsive website, not an Android app.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+The current books and sales data reset on refresh because this is a frontend-only demo.
 
 ## Pointers
 

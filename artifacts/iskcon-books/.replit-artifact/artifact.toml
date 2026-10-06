@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ISKCON Pandharpur Book Management"
+description = "A full-screen, animated web dashboard for ISKCON Pandharpur's book center. Preserves the supplied dashboard modules for sales, receipts, stock, reports, and book management."
+version = "1.0.0"
+id = "artifacts/iskcon-books"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23130
+
+[services.development]
+run = "pnpm --filter @workspace/iskcon-books run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/iskcon-books", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/iskcon-books/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23130"
+BASE_PATH = "/"
