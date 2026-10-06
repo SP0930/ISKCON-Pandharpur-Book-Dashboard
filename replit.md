@@ -1,6 +1,6 @@
-# ISKCON Pandharpur Book Management
+# Bhaktivedanta Book Stall | ISKCON Pandharpur
 
-A responsive browser-based dashboard for ISKCON Pandharpur's book center, with sales, receipts, stock, reports, and book inventory modules.
+A responsive browser-based dashboard for Bhaktivedanta Book Stall at ISKCON Pandharpur, with sales, receipts, stock, reports, and book inventory modules.
 
 ## Run & Operate
 
@@ -35,7 +35,7 @@ A responsive browser-based dashboard for ISKCON Pandharpur's book center, with s
 
 ## Product
 
-The dashboard manages book inventory, sales, receipts, stock alerts, and sales reports for the ISKCON Pandharpur book center.
+The dashboard manages book inventory, sales, receipts, stock alerts, and sales reports for Bhaktivedanta Book Stall at ISKCON Pandharpur.
 
 ## User preferences
 

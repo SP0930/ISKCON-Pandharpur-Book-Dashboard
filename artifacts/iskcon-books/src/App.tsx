@@ -1,7 +1,7 @@
 import './app.css';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  BookOpen, ChartNoAxesCombined, ChevronRight, ClipboardList, Coins,
+  BookOpen, ChartNoAxesCombined, ChevronRight, ClipboardList, Clock, Coins,
   Home, Menu, Moon, Plus, Printer, Search, ShoppingCart, Sparkles,
   Sun, SunMedium, Wallet, X,
 } from 'lucide-react';
@@ -86,6 +86,7 @@ function App() {
   const [customer, setCustomer] = useState('');
   const [mobile, setMobile] = useState('');
   const [last, setLast] = useState<Bill | null>(null);
+  const [receiptAutoReturn, setReceiptAutoReturn] = useState(false);
   const [language, setLanguage] = useState('सर्व');
   const [bookSearch, setBookSearch] = useState('');
   const [saleSearch, setSaleSearch] = useState('');
@@ -102,6 +103,18 @@ function App() {
     const timeout = window.setTimeout(() => setToast(''), 1900);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+  useEffect(() => {
+    if (screen !== 'receipt' || !last || !receiptAutoReturn) return;
+    const timeout = window.setTimeout(() => {
+      setReceiptAutoReturn(false);
+      setScreen('sale');
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      });
+    }, 5000);
+    return () => window.clearTimeout(timeout);
+  }, [screen, last, receiptAutoReturn]);
   useEffect(() => {
     const elements = Array.from(document.querySelectorAll<HTMLElement>(
       '.content .section-title, .content .metric-grid, .content .actions-grid, .content .panel, .content .two-col > section',
@@ -131,7 +144,7 @@ function App() {
     window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
   const notify = (message: string) => setToast(message);
-  const openReceipt = (bill: Bill) => { setLast(bill); go('receipt'); };
+  const openReceipt = (bill: Bill) => { setReceiptAutoReturn(false); setLast(bill); go('receipt'); };
 
   const addToCart = (id: number) => {
     const book = books.find(b => b.id === id);
@@ -162,7 +175,7 @@ function App() {
       return line ? { ...book, s: book.s - line[1] } : book;
     }));
     setBills(current => [...current, bill]);
-    setLast(bill); setCart({}); setCustomer(''); setMobile('');
+    setLast(bill); setReceiptAutoReturn(true); setCart({}); setCustomer(''); setMobile('');
     setDiscountInput(''); setDiscountMode('amount'); go('receipt');
   };
   const addBook = (event: FormEvent<HTMLFormElement>) => {
@@ -225,8 +238,8 @@ function App() {
     <div className={`row ${tap ? 'tap' : ''}`} onClick={onClick}>{children}{right && <div className="row-right">{right}</div>}</div>;
 
   const hero = <><section className="hero">
-    <div className="hero-date">शनिवार, 03 ऑक्टोबर 2026</div><div className="eyebrow">ISKCON पंढरपूर</div>
-    <h1>हरे कृष्ण, प्रभुजी</h1><p>श्रीमद्भगवद्गीता पुस्तक केंद्र</p>
+    <div className="hero-date">शनिवार, 03 ऑक्टोबर 2026</div><div className="eyebrow">Bhaktivedanta Book Stall</div>
+    <h1>हरे कृष्ण, प्रभुजी</h1><p>ISKCON Pandharpur · पुस्तक विक्री केंद्र</p>
     <div className="hero-orbit" /><LotusMark className="hero-lotus" />
   </section><div className="marquee"><span>{'हरे कृष्ण हरे कृष्ण कृष्ण कृष्ण हरे हरे · हरे राम हरे राम राम राम हरे हरे · जय श्रीकृष्ण · जय हरी विठ्ठल · '.repeat(6)}</span></div></>;
 
@@ -349,7 +362,7 @@ function App() {
       return <>
         <PageHead heading="Receipt" sub="पुस्तक विक्री केंद्राची पावती" />
         <article className="receipt printable-receipt">
-          <div className="receipt-head"><LotusMark /><h2>ISKCON पंढरपूर · पुस्तक विक्री केंद्र</h2><span className="mute">हरे कृष्ण · धन्यवाद</span></div><hr />
+          <div className="receipt-head"><LotusMark /><h2>Bhaktivedanta Book Stall</h2><span className="mute">ISKCON Pandharpur · हरे कृष्ण · धन्यवाद</span></div><hr />
           <PanelRow right={<span className="mute">{last.d} · {last.tm}</span>}><span>Bill #{last.no}</span></PanelRow>
           <div style={{ padding: '12px 0' }}>ग्राहक: <b>{last.c}</b></div>
           {last.it.map(([id, q]) => { const book = bookById(id); return book && <PanelRow key={id} right={format(book.p * q)}><span>{book.n} ({book.l}) × {q}</span></PanelRow>; })}
@@ -365,6 +378,10 @@ function App() {
             <div><span className="mute">Payment</span><span>{last.pay}</span></div>
           </div>
         </article>
+        {receiptAutoReturn && <div className="receipt-return" role="status" aria-live="polite">
+          <div><Clock size={16} aria-hidden="true" /><span>५ सेकंदांनंतर विक्रीच्या पेजवर परत जाईल</span></div>
+          <div className="receipt-progress"><span /></div>
+        </div>}
         <div className="actions-grid" style={{ maxWidth: 680, margin: '16px auto' }}>
           <button className="btn green" onClick={() => notify('WhatsApp वर पाठवलं (demo)')}>WhatsApp</button>
           <button className="btn outline" onClick={() => window.print()}><Printer size={16} />Print / PDF</button>
@@ -430,7 +447,7 @@ function App() {
       <article className="print-report">
         <header className="print-report-header">
           <div className="print-brand-mark"><LotusMark width="38" height="30" /></div>
-          <div><strong>ISKCON पंढरपूर</strong><span>श्रीमद्भगवद्गीता पुस्तक केंद्र</span></div>
+          <div><strong>Bhaktivedanta Book Stall</strong><span>ISKCON Pandharpur · श्रीमद्भगवद्गीता पुस्तक विक्री केंद्र</span></div>
           <div className="print-period"><b>{report} Report</b><span>{from} — {to}</span></div>
         </header>
         <div className="print-summary">
@@ -457,7 +474,7 @@ function App() {
             {filteredBills.length === 0 && <tr><td colSpan={report === 'Summary' ? 6 : 3}>या तारखांमध्ये विक्री नाही.</td></tr>}
           </tbody>
         </table>
-        <footer className="print-report-footer">ISKCON पंढरपूर · पुस्तक व्यवस्थापन</footer>
+        <footer className="print-report-footer">Bhaktivedanta Book Stall · ISKCON Pandharpur</footer>
       </article>
     </>;
 
@@ -472,18 +489,18 @@ function App() {
         {dark ? <Sun size={17} /> : <Moon size={17} />} Dark / Light mode बदला
       </button>
       <div className="panel" style={{ marginTop: 24, padding: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Sparkles size={19} color="var(--saf)" /><span>ISKCON पंढरपूर · पुस्तक व्यवस्थापन</span>
+        <Sparkles size={19} color="var(--saf)" /><span>Bhaktivedanta Book Stall · ISKCON Pandharpur</span>
       </div>
     </>;
   };
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><div className="brand-mark"><LotusMark width="31" height="25" /></div><div><strong>ISKCON पंढरपूर</strong><small>पुस्तक व्यवस्थापन</small></div></div>
+      <div className="brand"><div className="brand-mark"><LotusMark width="31" height="25" /></div><div><strong>Bhaktivedanta</strong><small>Book Stall · ISKCON Pandharpur</small></div></div>
       <div className="nav-label">WORKSPACE</div>
       <nav className="side-nav">{navItems.map(({ key, label, icon: Icon }) =>
         <button key={key} className={`nav-item ${navKey === key ? 'active' : ''}`} onClick={() => go(key)}><Icon />{label}</button>)}</nav>
-      <div className="sidebar-foot"><b>हरे कृष्ण</b>श्रीमद्भगवद्गीता पुस्तक केंद्र</div>
+      <div className="sidebar-foot"><b>हरे कृष्ण</b>Bhaktivedanta Book Stall<br />ISKCON Pandharpur</div>
     </aside>
     <div className="workspace">
       <header className="topbar">
