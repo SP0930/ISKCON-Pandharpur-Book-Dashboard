@@ -2,12 +2,17 @@ import './app.css';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   BookOpen, ChartNoAxesCombined, ChevronRight, ClipboardList, Coins,
-  Home, Menu, Moon, Plus, Printer, ShoppingCart, Sparkles,
+  Home, Menu, Moon, Plus, Printer, Search, ShoppingCart, Sparkles,
   Sun, SunMedium, Wallet, X,
 } from 'lucide-react';
 
 type Book = { id: number; n: string; l: string; m: number; p: number; s: number; min: number };
-type Bill = { no: number; c: string; d: string; tm: string; pay: 'Cash' | 'Online'; it: [number, number][]; st: string };
+type DiscountMode = 'amount' | 'percentage';
+type Bill = {
+  no: number; c: string; d: string; tm: string; pay: 'Cash' | 'Online';
+  it: [number, number][]; st: string; discount: number;
+  discountMode: DiscountMode; discountInput: number;
+};
 type Screen = 'home' | 'books' | 'sale' | 'receipt' | 'reports' | 'stock' | 'more';
 type Report = 'Summary' | 'Book-wise' | 'Language-wise' | 'Payment-wise';
 
@@ -20,10 +25,10 @@ const initialBooks: Book[] = [
   { id: 6, n: 'Gita As It Is', l: 'ગુજરાતી', m: 300, p: 250, s: 25, min: 10 },
 ];
 const initialBills: Bill[] = [
-  { no: 1039, c: 'प्रिया जोशी', d: '2026-10-03', tm: '09:30', pay: 'Cash', it: [[1, 4], [4, 1]], st: 'गोविंद' },
-  { no: 1040, c: 'अमित शर्मा', d: '2026-10-03', tm: '09:48', pay: 'Online', it: [[2, 1], [3, 1]], st: 'गोविंद' },
-  { no: 1041, c: 'सुनिता देशमुख', d: '2026-10-02', tm: '10:05', pay: 'Cash', it: [[4, 5]], st: 'राधा दासी' },
-  { no: 1042, c: 'रामेश्वर पाटील', d: '2026-10-01', tm: '10:21', pay: 'Online', it: [[1, 2], [5, 2]], st: 'राधा दासी' },
+  { no: 1039, c: 'प्रिया जोशी', d: '2026-10-03', tm: '09:30', pay: 'Cash', it: [[1, 4], [4, 1]], st: 'गोविंद', discount: 0, discountMode: 'amount', discountInput: 0 },
+  { no: 1040, c: 'अमित शर्मा', d: '2026-10-03', tm: '09:48', pay: 'Online', it: [[2, 1], [3, 1]], st: 'गोविंद', discount: 0, discountMode: 'amount', discountInput: 0 },
+  { no: 1041, c: 'सुनिता देशमुख', d: '2026-10-02', tm: '10:05', pay: 'Cash', it: [[4, 5]], st: 'राधा दासी', discount: 0, discountMode: 'amount', discountInput: 0 },
+  { no: 1042, c: 'रामेश्वर पाटील', d: '2026-10-01', tm: '10:21', pay: 'Online', it: [[1, 2], [5, 2]], st: 'राधा दासी', discount: 0, discountMode: 'amount', discountInput: 0 },
 ];
 const navItems: { key: Screen; label: string; icon: typeof Home }[] = [
   { key: 'home', label: 'Home', icon: Home },
@@ -33,7 +38,8 @@ const navItems: { key: Screen; label: string; icon: typeof Home }[] = [
   { key: 'more', label: 'अधिक', icon: Menu },
 ];
 const format = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
-const total = (bill: Bill, books: Book[]) => bill.it.reduce((sum, [id, q]) => sum + (books.find(b => b.id === id)?.p || 0) * q, 0);
+const subtotal = (bill: Bill, books: Book[]) => bill.it.reduce((sum, [id, q]) => sum + (books.find(b => b.id === id)?.p || 0) * q, 0);
+const total = (bill: Bill, books: Book[]) => Math.max(0, subtotal(bill, books) - bill.discount);
 const mrp = (bill: Bill, books: Book[]) => bill.it.reduce((sum, [id, q]) => sum + (books.find(b => b.id === id)?.m || 0) * q, 0);
 const quantity = (bill: Bill) => bill.it.reduce((sum, [, q]) => sum + q, 0);
 
@@ -75,10 +81,14 @@ function App() {
   const [bills, setBills] = useState(initialBills);
   const [cart, setCart] = useState<Record<number, number>>({});
   const [payment, setPayment] = useState<'Online' | 'Cash'>('Online');
+  const [discountMode, setDiscountMode] = useState<DiscountMode>('amount');
+  const [discountInput, setDiscountInput] = useState('');
   const [customer, setCustomer] = useState('');
   const [mobile, setMobile] = useState('');
   const [last, setLast] = useState<Bill | null>(null);
   const [language, setLanguage] = useState('सर्व');
+  const [bookSearch, setBookSearch] = useState('');
+  const [saleSearch, setSaleSearch] = useState('');
   const [report, setReport] = useState<Report>('Summary');
   const [from, setFrom] = useState('2026-10-01');
   const [to, setTo] = useState('2026-10-03');
@@ -145,13 +155,15 @@ function App() {
     const bill: Bill = {
       no: 1043 + bills.length - 4, c: customer.trim(), d: '2026-10-03',
       tm: new Date().toTimeString().slice(0, 5), pay: payment, it: items, st: 'प्रभुजी',
+      discount: discountAmount, discountMode, discountInput: enteredDiscount,
     };
     setBooks(current => current.map(book => {
       const line = items.find(([id]) => id === book.id);
       return line ? { ...book, s: book.s - line[1] } : book;
     }));
     setBills(current => [...current, bill]);
-    setLast(bill); setCart({}); setCustomer(''); setMobile(''); go('receipt');
+    setLast(bill); setCart({}); setCustomer(''); setMobile('');
+    setDiscountInput(''); setDiscountMode('amount'); go('receipt');
   };
   const addBook = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -166,20 +178,42 @@ function App() {
   const reportLines = useMemo(() => {
     if (report === 'Summary') return [];
     const groups = new Map<string, { q: number; revenue: number }>();
-    filteredBills.forEach(bill => bill.it.forEach(([id, q]) => {
-      const book = books.find(b => b.id === id); if (!book) return;
-      const label = report === 'Book-wise' ? `${book.n} (${book.l})` : report === 'Language-wise' ? book.l : bill.pay;
-      const item = groups.get(label) || { q: 0, revenue: 0 };
-      item.q += q; item.revenue += q * book.p; groups.set(label, item);
-    }));
+    filteredBills.forEach(bill => {
+      const billSubtotal = subtotal(bill, books);
+      bill.it.forEach(([id, q]) => {
+        const book = books.find(b => b.id === id); if (!book) return;
+        const label = report === 'Book-wise' ? `${book.n} (${book.l})` : report === 'Language-wise' ? book.l : bill.pay;
+        const item = groups.get(label) || { q: 0, revenue: 0 };
+        const lineSubtotal = q * book.p;
+        item.q += q;
+        item.revenue += lineSubtotal - (billSubtotal ? bill.discount * lineSubtotal / billSubtotal : 0);
+        groups.set(label, item);
+      });
+    });
     return [...groups.entries()].sort((a, b) => b[1].revenue - a[1].revenue);
   }, [books, filteredBills, report]);
-  const filteredBooks = books.filter(book => language === 'सर्व' || book.l === language);
+  const matchesBookSearch = (book: Book, query: string) =>
+    `${book.n} ${book.l}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  const filteredBooks = books.filter(book =>
+    (language === 'सर्व' || book.l === language) && matchesBookSearch(book, bookSearch));
+  const saleBooks = books.filter(book => matchesBookSearch(book, saleSearch));
   const lowBooks = books.filter(book => book.s <= book.min);
   const todayBills = bills.filter(bill => bill.d === '2026-10-03');
   const cartIds = Object.keys(cart).map(Number);
   const cartMrp = cartIds.reduce((sum, id) => sum + (books.find(b => b.id === id)?.m || 0) * cart[id], 0);
   const cartTotal = cartIds.reduce((sum, id) => sum + (books.find(b => b.id === id)?.p || 0) * cart[id], 0);
+  const enteredDiscount = Math.max(0, Number(discountInput) || 0);
+  const discountAmount = Math.min(
+    cartTotal,
+    discountMode === 'percentage'
+      ? Math.round(cartTotal * Math.min(enteredDiscount, 100) / 100)
+      : Math.round(enteredDiscount),
+  );
+  const amountDue = Math.max(0, cartTotal - discountAmount);
+  const reportRevenue = filteredBills.reduce((sum, bill) => sum + total(bill, books), 0);
+  const reportDiscount = filteredBills.reduce((sum, bill) => sum + bill.discount, 0);
+  const reportQuantity = filteredBills.reduce((sum, bill) => sum + quantity(bill), 0);
+  const reportLabel = report === 'Book-wise' ? 'पुस्तक' : report === 'Language-wise' ? 'भाषा' : 'Payment';
 
   const title: Record<Screen, string> = { home: 'Home', books: 'पुस्तके', sale: 'नवीन विक्री', receipt: 'Receipt', reports: 'Reports', stock: 'Stock Status', more: 'अधिक' };
   const navKey: Screen = screen === 'stock' ? 'more' : screen === 'receipt' ? 'sale' : screen;
@@ -206,7 +240,7 @@ function App() {
         <Metric label="Online" value={format(todayBills.filter(b => b.pay === 'Online').reduce((s, b) => s + total(b, books), 0))} />
         <Metric label="Offline (Cash)" value={format(todayBills.filter(b => b.pay === 'Cash').reduce((s, b) => s + total(b, books), 0))} />
         <Metric label="Bills" value={todayBills.length} />
-        <Metric label="दिलेला Discount" value={format(todayBills.reduce((s, b) => s + mrp(b, books) - total(b, books), 0))} />
+        <Metric label="दिलेला Discount" value={format(todayBills.reduce((s, b) => s + b.discount, 0))} />
       </div>
       <h2 className="section-title">Quick Actions</h2>
       <div className="actions-grid">
@@ -223,10 +257,15 @@ function App() {
 
     if (screen === 'books') return <>
       <PageHead heading="पुस्तके" sub="पुस्तकांचा साठा, भाषा आणि किंमत व्यवस्थापन" />
+      <div className="search-field">
+        <Search size={18} aria-hidden="true" />
+        <input aria-label="पुस्तक शोधा" value={bookSearch} onChange={e => setBookSearch(e.target.value)} placeholder="पुस्तकाचे नाव किंवा भाषा शोधा..." />
+        {bookSearch && <button type="button" aria-label="शोध पुसून टाका" onClick={() => setBookSearch('')}><X size={16} /></button>}
+      </div>
       <div className="chips">{['सर्व', ...new Set(books.map(book => book.l))].map(lang => <button key={lang} className={`chip ${language === lang ? 'on' : ''}`} onClick={() => setLanguage(lang)}>{lang}</button>)}</div>
       <div className="panel stagger">{filteredBooks.map(book => <PanelRow key={book.id} right={<><b>{book.s}</b><br />{stockBadge(book)}</>}>
         <span>{book.n}<small>{book.l} · MRP {format(book.m)} · Actual {format(book.p)}</small></span>
-      </PanelRow>)}</div>
+      </PanelRow>)}{!filteredBooks.length && <div className="empty">या शोधात पुस्तक सापडले नाही.</div>}</div>
       <h2 className="section-title">नवीन पुस्तक जोडा</h2>
       <form className="panel" style={{ padding: 20 }} onSubmit={addBook}>
         <div className="input-grid">
@@ -245,9 +284,14 @@ function App() {
       <div className="two-col">
         <section>
           <h2 className="section-title" style={{ marginTop: 0 }}>पुस्तक निवडा</h2>
-          <div className="panel stagger">{books.map(book => <PanelRow key={book.id} tap onClick={() => addToCart(book.id)} right={<>{format(book.p)}<small><s>{format(book.m)}</s></small></>}>
+          <div className="search-field sale-search">
+            <Search size={18} aria-hidden="true" />
+            <input aria-label="विक्रीसाठी पुस्तक शोधा" value={saleSearch} onChange={e => setSaleSearch(e.target.value)} placeholder="पुस्तक शोधा..." />
+            {saleSearch && <button type="button" aria-label="शोध पुसून टाका" onClick={() => setSaleSearch('')}><X size={16} /></button>}
+          </div>
+          <div className="panel stagger">{saleBooks.map(book => <PanelRow key={book.id} tap onClick={() => addToCart(book.id)} right={<><b>{format(book.p)}</b><small>Actual किंमत</small></>}>
             <span>{book.n}<small>{book.l} · Stock {book.s}</small></span>
-          </PanelRow>)}</div>
+          </PanelRow>)}{!saleBooks.length && <div className="empty">या शोधात पुस्तक सापडले नाही.</div>}</div>
           <h2 className="section-title">निवडलेली पुस्तके</h2>
           <div className="panel">{cartIds.length ? cartIds.map(id => {
             const book = bookById(id); if (!book) return null;
@@ -267,10 +311,33 @@ function App() {
             <button className={`btn ${payment !== 'Online' ? 'outline' : ''}`} onClick={() => setPayment('Online')}><Wallet size={16} />Online (UPI)</button>
             <button className={`btn ${payment !== 'Cash' ? 'outline' : ''}`} onClick={() => setPayment('Cash')}><Coins size={16} />Offline (Cash)</button>
           </div>
+          <div className="discount-editor">
+            <div className="discount-heading"><span>Discount</span><small>Owner set</small></div>
+            <div className="discount-options">
+              <div className="discount-switch" role="group" aria-label="Discount चा प्रकार">
+                <button className={discountMode === 'amount' ? 'active' : ''} onClick={() => setDiscountMode('amount')}>₹ रक्कम</button>
+                <button className={discountMode === 'percentage' ? 'active' : ''} onClick={() => setDiscountMode('percentage')}>% टक्केवारी</button>
+              </div>
+              <label className="discount-input">
+                <span>{discountMode === 'amount' ? '₹' : '%'}</span>
+                <input
+                  aria-label={discountMode === 'amount' ? 'Discount रक्कम' : 'Discount टक्केवारी'}
+                  type="number"
+                  min="0"
+                  max={discountMode === 'percentage' ? 100 : cartTotal}
+                  step={discountMode === 'amount' ? 1 : 0.01}
+                  value={discountInput}
+                  onChange={e => setDiscountInput(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+            </div>
+          </div>
           <div className="summary-box" style={{ marginTop: 18 }}>
             <div><span>MRP एकूण</span><span>{format(cartMrp)}</span></div>
-            <div style={{ color: 'var(--grn)' }}><span>Discount</span><span>- {format(cartMrp - cartTotal)}</span></div>
-            <div className="total"><span>भरायची रक्कम</span><span>{format(cartTotal)}</span></div>
+            <div><span>Actual एकूण</span><span>{format(cartTotal)}</span></div>
+            <div className="manual-discount"><span>Discount</span><span>− {format(discountAmount)}</span></div>
+            <div className="total"><span>भरायची रक्कम</span><span>{format(amountDue)}</span></div>
           </div>
           <button className="btn full" style={{ marginTop: 13 }} onClick={makeBill}>Bill बनवा</button>
         </section>
@@ -281,7 +348,7 @@ function App() {
       if (!last) return <><PageHead heading="Receipt" /><div className="panel empty">अलीकडील व्यवहारातून बिल निवडा.</div><button className="btn" style={{ marginTop: 16 }} onClick={() => go('home')}>Home</button></>;
       return <>
         <PageHead heading="Receipt" sub="पुस्तक विक्री केंद्राची पावती" />
-        <article className="receipt">
+        <article className="receipt printable-receipt">
           <div className="receipt-head"><LotusMark /><h2>ISKCON पंढरपूर · पुस्तक विक्री केंद्र</h2><span className="mute">हरे कृष्ण · धन्यवाद</span></div><hr />
           <PanelRow right={<span className="mute">{last.d} · {last.tm}</span>}><span>Bill #{last.no}</span></PanelRow>
           <div style={{ padding: '12px 0' }}>ग्राहक: <b>{last.c}</b></div>
@@ -289,7 +356,11 @@ function App() {
           <hr />
           <div className="summary-box" style={{ border: 0, padding: 0 }}>
             <div><span>MRP एकूण</span><span>{format(mrp(last, books))}</span></div>
-            <div style={{ color: 'var(--grn)' }}><span>Discount</span><span>- {format(mrp(last, books) - total(last, books))}</span></div>
+            <div><span>Actual एकूण</span><span>{format(subtotal(last, books))}</span></div>
+            <div className="manual-discount">
+              <span>Discount {last.discountMode === 'percentage' ? `(${last.discountInput}%)` : '(Owner set)'}</span>
+              <span>− {format(last.discount)}</span>
+            </div>
             <div className="total"><span>एकूण रक्कम</span><span>{format(total(last, books))}</span></div>
             <div><span className="mute">Payment</span><span>{last.pay}</span></div>
           </div>
@@ -332,8 +403,8 @@ function App() {
       <div className="chips" style={{ marginTop: 17 }}>{(['Summary', 'Book-wise', 'Language-wise', 'Payment-wise'] as Report[]).map(option =>
         <button key={option} className={`chip ${report === option ? 'on' : ''}`} onClick={() => setReport(option)}>{option}</button>)}</div>
       <div className="metric-grid stagger">
-        <Metric label="एकूण विक्री" value={format(filteredBills.reduce((s, b) => s + total(b, books), 0))} tone="gr" />
-        <Metric label="एकूण पुस्तके" value={filteredBills.reduce((s, b) => s + quantity(b), 0)} tone="bl" />
+        <Metric label="एकूण विक्री" value={format(reportRevenue)} tone="gr" />
+        <Metric label="एकूण पुस्तके" value={reportQuantity} tone="bl" />
         <Metric label="Online" value={format(filteredBills.filter(b => b.pay === 'Online').reduce((s, b) => s + total(b, books), 0))} />
         <Metric label="Offline" value={format(filteredBills.filter(b => b.pay === 'Cash').reduce((s, b) => s + total(b, books), 0))} />
       </div>
@@ -356,6 +427,38 @@ function App() {
         <div className="chart-bars">{[50, 65, 40, 80, 60, 100, 70].map((height, i) => <i key={i} className={i === 5 ? 'strong' : ''} style={{ height: `${height}%` }} />)}</div>
         <div className="chart-labels">{['सो', 'मं', 'बु', 'गु', 'शु', 'श', 'र'].map(day => <span key={day}>{day}</span>)}</div>
       </div>
+      <article className="print-report">
+        <header className="print-report-header">
+          <div className="print-brand-mark"><LotusMark width="38" height="30" /></div>
+          <div><strong>ISKCON पंढरपूर</strong><span>श्रीमद्भगवद्गीता पुस्तक केंद्र</span></div>
+          <div className="print-period"><b>{report} Report</b><span>{from} — {to}</span></div>
+        </header>
+        <div className="print-summary">
+          <div><small>एकूण विक्री</small><b>{format(reportRevenue)}</b></div>
+          <div><small>दिलेला Discount</small><b>{format(reportDiscount)}</b></div>
+          <div><small>एकूण Bills</small><b>{filteredBills.length}</b></div>
+          <div><small>विकलेली पुस्तके</small><b>{reportQuantity}</b></div>
+        </div>
+        <table className="print-table">
+          <thead>
+            {report === 'Summary'
+              ? <tr><th>Bill #</th><th>दिनांक</th><th>ग्राहक</th><th>पुस्तके</th><th>Payment</th><th>एकूण</th></tr>
+              : <tr><th>{reportLabel}</th><th>पुस्तके</th><th>एकूण विक्री</th></tr>}
+          </thead>
+          <tbody>
+            {report === 'Summary'
+              ? [...filteredBills].sort((a, b) => b.no - a.no).map(bill =>
+                <tr key={bill.no}>
+                  <td>#{bill.no}</td><td>{bill.d}</td><td>{bill.c}</td>
+                  <td>{quantity(bill)}</td><td>{bill.pay}</td><td>{format(total(bill, books))}</td>
+                </tr>)
+              : reportLines.map(([label, data]) =>
+                <tr key={label}><td>{label}</td><td>{data.q}</td><td>{format(data.revenue)}</td></tr>)}
+            {filteredBills.length === 0 && <tr><td colSpan={report === 'Summary' ? 6 : 3}>या तारखांमध्ये विक्री नाही.</td></tr>}
+          </tbody>
+        </table>
+        <footer className="print-report-footer">ISKCON पंढरपूर · पुस्तक व्यवस्थापन</footer>
+      </article>
     </>;
 
     return <>
@@ -385,19 +488,20 @@ function App() {
     <div className="workspace">
       <header className="topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="mobile-menu" aria-label="Menu" onClick={() => setMobileMenu(value => !value)}>{mobileMenu ? <X size={17} /> : <Menu size={17} />}</button>
+          <button className="mobile-menu" aria-label="Menu" aria-expanded={mobileMenu} aria-controls="mobile-menu-panel" onClick={() => setMobileMenu(value => !value)}>{mobileMenu ? <X size={17} /> : <Menu size={17} />}</button>
           <div className="crumb">पुस्तक केंद्र <span style={{ margin: '0 7px' }}>›</span><strong>{title[screen]}</strong></div>
         </div>
         <div className="top-meta"><span className="date-pill"><SunMedium size={15} /> शनिवार, 03 ऑक्टोबर 2026</span><button className="theme-btn" aria-label="Theme toggle" onClick={() => setDark(value => !value)}>{dark ? <Sun size={17} /> : <Moon size={17} />}</button></div>
       </header>
-      {mobileMenu && <div className="panel" style={{ position: 'absolute', zIndex: 15, top: 52, left: 12, right: 12, boxShadow: '0 12px 30px #14243a22' }}>
-        {navItems.map(({ key, label, icon: Icon }) => <PanelRow key={key} tap onClick={() => go(key)}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon size={17} />{label}</span></PanelRow>)}
-        <PanelRow tap onClick={() => go('stock')}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><ClipboardList size={17} />Stock Status</span></PanelRow>
-      </div>}
+      {mobileMenu && <>
+        <button className="mobile-menu-backdrop" aria-label="Menu बंद करा" onClick={() => setMobileMenu(false)} />
+        <nav id="mobile-menu-panel" className="panel mobile-menu-panel" aria-label="मुख्य नेव्हिगेशन">
+          {navItems.map(({ key, label, icon: Icon }) => <PanelRow key={key} tap onClick={() => go(key)}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon size={17} />{label}</span></PanelRow>)}
+          <PanelRow tap onClick={() => go('stock')}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><ClipboardList size={17} />Stock Status</span></PanelRow>
+        </nav>
+      </>}
       <main key={screen} className="content screen-enter">{page()}</main>
     </div>
-    <nav className="mobile-nav">{navItems.map(({ key, label, icon: Icon }) =>
-      <button key={key} className={navKey === key ? 'active' : ''} onClick={() => go(key)}><Icon />{label}</button>)}</nav>
     {toast && <div className="toast" role="status">{toast}</div>}
   </div>;
 }

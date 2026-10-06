@@ -41,6 +41,8 @@ The dashboard manages book inventory, sales, receipts, stock alerts, and sales r
 
 - Preserve existing modules, copy, sample content, and behaviors; limit future changes to presentation and animation unless the user explicitly asks otherwise.
 - Keep the experience as a full-screen responsive website, not an Android app.
+- New sales must have no discount unless the owner enters one; support both a fixed rupee amount and a percentage.
+- PDF reports should print only the selected report and key totals, not the full dashboard.
 
 ## Gotchas
 
